@@ -61,7 +61,7 @@ FEW_SHOT_EXAMPLES = """
 def evaluate_with_gemini(api_key, text_content=None, uploaded_file_path=None, grade="", rubric=""):
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-3-flash-preview")
         
         # 프롬프트(지시사항)를 루브릭에 맞춰 매우 구체화함
         prompt = f"""
