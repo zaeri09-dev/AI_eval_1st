@@ -14,9 +14,8 @@ st.markdown("""
     <style>
     .stApp { background-color: #f8fafc; }
     * { font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
-    .main-title { font-size: 28px; font-weight: 800; color: #1e293b; margin-bottom: 5px; }
+    .main-title { font-size: 28px; font-weight: 800; color: #1e293b; margin-bottom: 5px; margin-top: 10px; }
     .sub-title { font-size: 14.5px; color: #64748b; margin-bottom: 30px; }
-    .card { background-color: #ffffff; border-radius: 14px; padding: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
     .stButton>button { background-color: #3b82f6; color: white; border-radius: 8px; font-weight: 600; padding: 0.5rem 1rem; border: none; transition: all 0.2s; }
     .stButton>button:hover { background-color: #2563eb; transform: translateY(-1px); }
     .result-box { background-color: #f1f5f9; padding: 25px; border-radius: 12px; border-left: 5px solid #3b82f6; font-size: 15px; line-height: 1.7; color: #334155; margin-top: 15px; }
@@ -36,7 +35,6 @@ st.markdown("""
 # ==========================================
 # 2. 루브릭 바인더(Session State) 초기화
 # ==========================================
-# 앱이 시작될 때 기본 루브릭을 바인더에 넣어둡니다.
 if 'rubric_binder' not in st.session_state:
     st.session_state.rubric_binder = {
         "고등_화학_실험보고서": """
@@ -73,7 +71,6 @@ if 'rubric_binder' not in st.session_state:
         """
     }
 
-# 메뉴 확장 상태 관리
 if 'menu_expanded' not in st.session_state:
     st.session_state.menu_expanded = True
 if 'current_page' not in st.session_state:
@@ -140,24 +137,20 @@ with st.sidebar:
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.markdown("🔒 **시스템 설정**")
+    # 💡 [수정 필요] API 키 입력 부분
     api_key_input = st.text_input("Google API Key 입력", type="password", placeholder="AIzaSy...")
-
-display_title = "📋 AI 서술형 채점" if "AI 서술형 채점" in st.session_state.current_page else "✨ AI 루브릭 설계"
-st.markdown(f"<div class='main-title'>{display_title}</div>", unsafe_allow_html=True)
 
 # ------------------------------------------
 # 메뉴 1: 단일 채점 모드
 # ------------------------------------------
 if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)":
-    st.markdown("<div class='sub-title'>선생님만의 루브릭을 실시간으로 추가하고 평가할 수 있습니다.</div>", unsafe_allow_html=True)
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>📋 AI 서술형 채점</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>선생님만의 루브릭을 실시간으로 추가하고, 단일 과제를 심층 평가합니다.</div>", unsafe_allow_html=True)
     
     st.markdown("#### ⚙️ 평가 기준 선택 및 추가")
-    # 선택 목록에 "새 루브릭 추가" 옵션을 병합
     rubric_options = list(st.session_state.rubric_binder.keys()) + ["➕ 새 루브릭 직접 추가"]
     selected_rubric_name = st.selectbox("사용할 루브릭을 선택하거나 새로 만드세요.", rubric_options)
     
-    # 💡 [새 기능] 새 루브릭 추가 로직
     if selected_rubric_name == "➕ 새 루브릭 직접 추가":
         st.info("새로운 평가 기준을 바인더에 등록합니다.")
         new_name = st.text_input("루브릭 이름 (예: 화학 반응 속도 실험 평가)")
@@ -171,7 +164,6 @@ if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)
             else:
                 st.error("이름과 내용을 모두 입력해 주세요.")
     else:
-        # 기존 루브릭 선택 시
         current_rubric_text = st.session_state.rubric_binder[selected_rubric_name]
         with st.expander("📌 선택된 루브릭 상세 보기"):
             st.markdown(current_rubric_text)
@@ -199,16 +191,19 @@ if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)
                     result = evaluate_with_gemini(api_key_input, text_content=student_text, uploaded_file_path=uploaded_file_path, rubric=current_rubric_text)
                     st.markdown(f'<div class="result-box"><b>[AI 채점 결과]</b><br><br>{result}</div>', unsafe_allow_html=True)
                 if tmp_path: os.remove(tmp_path) 
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------------------------------
-# 메뉴 2: 학급 전체 채점 (동일하게 바인더 적용)
+# 메뉴 2: 학급 전체 채점 
 # ------------------------------------------
 elif st.session_state.current_page == "ㅤㅤ📁 학급 전체 채점 (엑셀)":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>📋 AI 서술형 채점</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>학급 전체 과제를 한 번에 심층 평가합니다.</div>", unsafe_allow_html=True)
+    
     st.markdown("#### 📊 학급 일괄 채점")
     batch_rubric_name = st.selectbox("일괄 채점에 적용할 루브릭", list(st.session_state.rubric_binder.keys()))
-    st.markdown(f"선택된 루브릭: **{batch_rubric_name}**")
+    
+    with st.expander("📌 선택된 루브릭 상세 보기"):
+        st.markdown(st.session_state.rubric_binder[batch_rubric_name])
     
     uploaded_csv = st.file_uploader("CSV 파일 선택", type=['csv'])
     if uploaded_csv and st.button("🚀 일괄 채점 시작"):
@@ -230,15 +225,16 @@ elif st.session_state.current_page == "ㅤㅤ📁 학급 전체 채점 (엑셀)"
                 st.success("✅ 완료!")
                 st.dataframe(df)
                 st.download_button("📥 다운로드", df.to_csv(index=False).encode('utf-8-sig'), "결과.csv", "text/csv")
-    st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------------------------------
 # 메뉴 3: AI 루브릭 설계
 # ------------------------------------------
 elif st.session_state.current_page == "✨ AI 루브릭 설계":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("<div class='main-title'>✨ AI 루브릭 설계</div>", unsafe_allow_html=True)
+    st.markdown("<div class='sub-title'>수행평가 주제 기반 3단계 성취수준 자동 생성기</div>", unsafe_allow_html=True)
+    
     st.markdown("#### 🪄 AI 루브릭 설계소")
-    rubric_topic = st.text_input("수행평가 주제 입력")
+    rubric_topic = st.text_input("수행평가 주제 입력 (예: 르샤틀리에 원리 실험)")
     if st.button("🪄 설계 요청"):
         if not api_key_input: st.error("API Key 필요")
         else:
@@ -246,4 +242,3 @@ elif st.session_state.current_page == "✨ AI 루브릭 설계":
                 gen_rubric = generate_rubric_with_gemini(api_key_input, rubric_topic)
                 st.markdown(f'<div class="result-box"><b>[추천 루브릭]</b><br><br>{gen_rubric}</div>', unsafe_allow_html=True)
                 st.info("💡 팁: 위 내용을 복사해서 '단일 채점' 메뉴의 '새 루브릭 추가'에 붙여넣어 사용하세요!")
-    st.markdown("</div>", unsafe_allow_html=True)
