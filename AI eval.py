@@ -102,7 +102,7 @@ def generate_rubric_with_gemini(api_key, topic):
     """교사가 입력한 주제로 새로운 루브릭을 생성해주는 함수"""
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-pro") # 루브릭 생성은 조금 더 똑똑한 Pro 모델 사용
+        model = genai.GenerativeModel("gemini-3-flash-preview") # 루브릭 생성은 조금 더 똑똑한 Pro 모델 사용
         
         prompt = f"""
         당신은 교육평가 전문가입니다. 교사가 제시한 다음 과제 주제를 바탕으로, 학생을 평가하기 위한 '분석적 루브릭(Analytic Rubric)'을 개발해주세요.
