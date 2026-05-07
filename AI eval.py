@@ -22,9 +22,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 💡 [수정 필요] 교육학적 세부 루브릭 데이터베이스
+# 2. 교육학적 세부 루브릭 데이터베이스
 # ==========================================
-# 단순 질문형이 아닌, 성취 수준(우수/보통/미흡)에 따른 구체적 도달점 명시
+# 💡 [수정 필요] 상황에 맞게 루브릭의 내용과 점수를 수정하여 사용하세요.
 RUBRIC_DB = {
     "고등_화학_실험보고서": """
     [평가 영역 1: 이론적 배경 및 가설 설정 (30점)]
@@ -44,7 +44,6 @@ RUBRIC_DB = {
     """
 }
 
-# 💡 [수정 필요] AI가 흉내 낼 선생님만의 상세 채점 가이드라인
 FEW_SHOT_EXAMPLES = """
 [모범 채점 예시]
 - 항목별 평가 및 점수 산출: 
@@ -61,9 +60,8 @@ FEW_SHOT_EXAMPLES = """
 def evaluate_with_gemini(api_key, text_content=None, uploaded_file_path=None, grade="", rubric=""):
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-3-flash-preview")
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
-        # 프롬프트(지시사항)를 루브릭에 맞춰 매우 구체화함
         prompt = f"""
         너는 {grade} 학생들을 지도하는 꼼꼼하고 통찰력 있는 교사야. 
         아래 제공된 [교육학적 세부 루브릭]에 따라 제출된 학생의 과제를 공정하게 평가해줘.
@@ -110,7 +108,6 @@ with st.sidebar:
 
 current_rubric = RUBRIC_DB[selected_category]
 
-# 선생님이 선택한 루브릭을 화면에서 직접 확인할 수 있도록 펼침 메뉴 제공
 with st.expander("📌 현재 적용된 세부 평가 기준(루브릭) 확인하기"):
     st.write(current_rubric)
 
@@ -144,15 +141,25 @@ with tab2:
                 os.remove(tmp_file_path)
                 st.markdown(f'<div class="result-box">{result}</div>', unsafe_allow_html=True)
 
-# 탭 3
+# 탭 3 (오류가 수정된 부분)
 with tab3:
     st.markdown("필수 열 이름: **이름**, **과제내용**")
     uploaded_csv = st.file_uploader("CSV 파일 선택", type=['csv'])
     if uploaded_csv and st.button("일괄 채점", key="batch_btn"):
-        if not api_key_input: st.error("👈 API Key를 입력해주세요.")
+        if not api_key_input: 
+            st.error("👈 API Key를 입력해주세요.")
         else:
-            df = pd.read_csv(uploaded_csv)
-            if '과제내용' not in df.columns: st.error("'과제내용' 열이 없습니다.")
+            # 💡 [수정 필요] 윈도우 엑셀의 한글 깨짐 오류(UnicodeDecodeError)를 해결하는 마법의 코드입니다.
+            try:
+                # 1. 먼저 세계 표준(utf-8)으로 읽기를 시도합니다.
+                df = pd.read_csv(uploaded_csv, encoding='utf-8')
+            except UnicodeDecodeError:
+                # 2. 에러가 나면, 파일을 다시 처음부터 한국어 엑셀 전용 방식(cp949)으로 읽어 들입니다.
+                uploaded_csv.seek(0)
+                df = pd.read_csv(uploaded_csv, encoding='cp949')
+
+            if '과제내용' not in df.columns: 
+                st.error("'과제내용' 열이 없습니다. 엑셀의 첫 번째 줄(제목)이 '과제내용'인지 확인해주세요.")
             else:
                 progress_bar = st.progress(0)
                 results, total = [], len(df)
