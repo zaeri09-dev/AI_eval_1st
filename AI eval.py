@@ -1,193 +1,166 @@
 import streamlit as st
 import pandas as pd
+import tempfile
+import os
 import time
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import PromptTemplate
+import google.generativeai as genai
 
 # ==========================================
-# 1. 페이지 기본 설정 및 디자인 (CSS)
+# 1. 페이지 설정 및 디자인 (CSS)
 # ==========================================
 st.set_page_config(page_title="AI 학생 과제 평가 시스템", page_icon="📝", layout="wide")
 
-# 세련되고 깔끔한 UI를 위한 커스텀 CSS 적용 (이모티콘 남발 방지, 여백과 그림자 활용)
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
     .stTextArea textarea { border-radius: 10px; border: 1px solid #dee2e6; padding: 15px; }
-    .stButton>button { border-radius: 8px; font-weight: 600; padding: 0.5rem 1rem; width: 100%; transition: all 0.3s; }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .result-box { background-color: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-top: 20px; border-left: 5px solid #4a90e2; }
+    .stButton>button { border-radius: 8px; font-weight: 600; padding: 0.5rem 1rem; width: 100%; background-color: #4a90e2; color: white; border: none; }
+    .stButton>button:hover { background-color: #357abd; }
+    .result-box { background-color: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-top: 20px; border-left: 6px solid #4a90e2; font-size: 16px; line-height: 1.6; }
     h1, h2, h3 { color: #2c3e50; font-family: 'Pretendard', sans-serif; }
     </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 데이터베이스 및 템플릿 설정
+# 2. 💡 [수정 필요] 교육학적 세부 루브릭 데이터베이스
 # ==========================================
-# 💡 [수정 필요] 선생님의 과목과 상황에 맞게 평가 기준을 자유롭게 수정하거나 추가하세요.
+# 단순 질문형이 아닌, 성취 수준(우수/보통/미흡)에 따른 구체적 도달점 명시
 RUBRIC_DB = {
-    "고등_화학_실험보고서": "1. 실험 목적과 원리를 정확히 서술했는가? (30점)\n2. 실험 과정과 결과를 논리적으로 분석했는가? (40점)\n3. 오차의 원인을 과학적으로 추론했는가? (30점)",
-    "고등_독서감상문": "1. 책의 핵심 내용을 정확히 파악했는가? (30점)\n2. 자신의 삶과 연결하여 성찰했는가? (40점)\n3. 문장이 학술적이고 매끄러운가? (30점)",
-    "초중등_일반에세이": "1. 주제가 명확하게 드러나는가? (30점)\n2. 논리적 흐름이 자연스러운가? (40점)\n3. 표현이 풍부하고 창의적인가? (30점)"
+    "고등_화학_실험보고서": """
+    [평가 영역 1: 이론적 배경 및 가설 설정 (30점)]
+    - 우수 (25-30점): 핵심 화학 원리(예: 반응 속도론, 화학 평형 등)를 정확히 설명하고, 이를 바탕으로 변인 간의 관계를 포함한 논리적이고 검증 가능한 가설을 설정함.
+    - 보통 (15-24점): 화학 원리를 설명하였으나 일부 오류나 누락이 있고, 가설과 원리 간의 연결성이 다소 부족함.
+    - 미흡 (0-14점): 원리 설명이 부정확하거나 누락되었으며, 가설이 비논리적이거나 제시되지 않음.
+
+    [평가 영역 2: 실험 결과 분석 및 해석 (40점)]
+    - 우수 (35-40점): 수집된 데이터(표, 그래프 등)를 과학적으로 변환하고, 독립/종속 변인 간의 관계를 화학적 원리를 통해 심층적으로 분석함.
+    - 보통 (20-34점): 데이터를 제시하였으나 분석이 피상적이고, 원리와의 연결을 통한 해석이 부족함.
+    - 미흡 (0-19점): 데이터 처리에 오류가 있거나 단순 사실 나열에 그쳐 분석 및 해석이 이루어지지 않음.
+
+    [평가 영역 3: 결론 도출 및 오차 논의 (30점)]
+    - 우수 (25-30점): 실험 결과를 바탕으로 타당한 결론을 도출하고, 오차 발생 원인을 실험 장치, 환경, 화학적 요인 등으로 나누어 다각도로 분석한 뒤 구체적인 개선 방안을 제시함.
+    - 보통 (15-24점): 결론은 도출하였으나 오차 원인 분석이 '단순 계산 실수' 등 일차원적이거나 개선 방안이 구체적이지 않음.
+    - 미흡 (0-14점): 결론이 실험 결과와 무관하거나, 오차 분석 및 개선 방안이 전혀 제시되지 않음.
+    """
 }
 
-# 💡 [수정 필요] 선생님만의 평가 스타일이 담긴 예시를 넣어주세요.
+# 💡 [수정 필요] AI가 흉내 낼 선생님만의 상세 채점 가이드라인
 FEW_SHOT_EXAMPLES = """
-[모범 채점 예시 - 화학 실험 보고서]
-학생 글: 이번 실험에서 감압 플라스크를 썼다. 결과가 이론값보다 작게 나왔다. 이유는 잘 모르겠지만 실수한 것 같다.
-채점 결과:
-- 항목별 평가: 실험 목적/원리(10/30점 - 서술 부족), 과정/결과 분석(15/40점 - 단순 사실만 나열), 오차 추론(5/30점 - 과학적 근거 부족)
-- 총점: 30점
-- 종합 피드백: 플라스크를 사용한 점을 잘 기록해 주었어요. 하지만 오차가 발생한 '과학적인 이유(예: 압력 변화, 불순물 등)'를 교과서 개념과 연결해서 한 줄만 더 고민해 본다면 훨씬 훌륭한 보고서가 될 것입니다.
+[모범 채점 예시]
+- 항목별 평가 및 점수 산출: 
+  1. 이론적 배경 및 가설 설정 (28/30점 - 우수): 르샤틀리에 원리를 바탕으로 압력 변화에 따른 평형 이동 가설을 매우 논리적으로 설정했습니다. 다만, 온도의 영향에 대한 배경 설명이 한 줄 누락되어 2점 감점하였습니다.
+  2. 실험 결과 분석 및 해석 (25/40점 - 보통): 표와 그래프로 데이터는 잘 정리했으나, 결과가 '왜' 그렇게 나왔는지 화학 평형 상수(K)의 개념을 연결하여 해석하지 않고 현상만 단순 서술하여 '보통' 수준에 해당합니다.
+  3. 결론 도출 및 오차 논의 (10/30점 - 미흡): 오차 원인을 '측정할 때 눈금을 잘못 본 것 같다'는 단순 실수로만 언급했습니다. 플라스크 내부의 실제 기체 압력 손실 등 화학적 요인에 대한 분석이 없어 아쉽습니다.
+- 총점: 63점
+- 종합 피드백: 데이터 시각화 능력과 가설 설정 능력이 탁월합니다! 다음 보고서에서는 결과를 분석할 때 '화학 1 교과서 몇 페이지에 나온 개념이 적용되었을까?'를 고민해 보고, 오차 원인도 단순 실수를 넘어 '실험 환경이나 기기의 근본적 한계' 측면에서 파고든다면 훨씬 훌륭한 과학자로 성장할 수 있을 거예요.
 """
 
-# AI에게 내릴 지시문 (프롬프트 템플릿)
-TEMPLATE_TEXT = """
-너는 {grade} 학생들을 지도하는 통찰력 있고 따뜻한 교사야.
-아래 제공된 [평가 기준]과 [채점 예시]를 참고해서, 학생의 글을 공정하게 평가하고 성장을 돕는 피드백을 작성해줘.
-
-[평가 기준]
-{criteria}
-
-{examples}
-
-[학생 글]
-{student_text}
-
-[출력 형식]
-- 항목별 평가: (각 기준별 충족 여부와 코멘트)
-- 총점: 
-- 종합 피드백: (성장을 독려하는 따뜻한 조언)
-"""
-
-prompt_template = PromptTemplate(
-    input_variables=["grade", "criteria", "examples", "student_text"],
-    template=TEMPLATE_TEXT
-)
-
 # ==========================================
-# 3. AI 평가 함수 정의 (에러 처리 포함)
+# 3. AI 평가 엔진 
 # ==========================================
-def evaluate_student_text(api_key, text, grade, rubric):
+def evaluate_with_gemini(api_key, text_content=None, uploaded_file_path=None, grade="", rubric=""):
     try:
-        # AI 모델 설정
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-3-flash-preview", # 최신 모델 적용
-            google_api_key=api_key,
-            temperature=0.2 # 일관성 있는 평가를 위해 창의성 낮춤
-        )
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel("gemini-1.5-flash")
         
-        # 파이프라인(Chain) 연결 및 실행
-        chain = prompt_template | llm
-        result = chain.invoke({
-            "grade": grade,
-            "criteria": rubric,
-            "examples": FEW_SHOT_EXAMPLES,
-            "student_text": text
-        })
-        return result.content
-    except Exception as e:
-        # 에러 발생 시 프로그램이 뻗지 않고 안내 메시지 반환
-        return f"⚠️ 오류가 발생했습니다. API 키가 정확한지, 인터넷 연결이 되어 있는지 확인해 주세요.\n(상세 내용: {str(e)})"
+        # 프롬프트(지시사항)를 루브릭에 맞춰 매우 구체화함
+        prompt = f"""
+        너는 {grade} 학생들을 지도하는 꼼꼼하고 통찰력 있는 교사야. 
+        아래 제공된 [교육학적 세부 루브릭]에 따라 제출된 학생의 과제를 공정하게 평가해줘.
+        
+        [지시사항]
+        1. 각 평가 영역별로 학생의 글이 '우수', '보통', '미흡' 중 어디에 해당하는지 명확히 판단해.
+        2. 점수를 부여할 때, 반드시 루브릭에 명시된 서술 내용(기준)을 근거로 '왜 이 점수를 부여했는지' 이유를 상세히 적어.
+        3. 손글씨 문서의 경우 글씨를 주의 깊게 판독해.
+        4. 마크다운 포맷(JSON 형식 등의 포장지)을 절대 쓰지 말고, 읽기 편한 순수 텍스트로만 출력해.
 
+        [교육학적 세부 루브릭]
+        {rubric}
+
+        [선생님의 채점 예시]
+        {FEW_SHOT_EXAMPLES}
+        """
+
+        contents_to_send = [prompt]
+        if text_content: contents_to_send.append(f"\n[학생 과제 내용]\n{text_content}")
+        if uploaded_file_path:
+            uploaded_gemini_file = genai.upload_file(path=uploaded_file_path)
+            contents_to_send.append(uploaded_gemini_file)
+            
+        response = model.generate_content(contents_to_send, generation_config={"temperature": 0.2})
+        
+        if uploaded_file_path: genai.delete_file(uploaded_gemini_file.name)
+        return response.text 
+
+    except Exception as e:
+        return f"⚠️ 오류가 발생했습니다. API 키나 파일 상태를 확인해 주세요.\n(상세 내용: {str(e)})"
 
 # ==========================================
 # 4. 화면 구성 (UI)
 # ==========================================
-st.title("AI 학생 과제 평가 시스템")
-st.markdown("학생들의 텍스트 과제를 빠르고 일관되게 분석하여 맞춤형 피드백을 제공합니다.")
+st.title("AI 학생 과제 평가 시스템 🔬")
+st.markdown("세분화된 평가 루브릭을 바탕으로 AI가 학생들의 보고서를 심층 분석합니다.")
 
-# 사이드바 (설정 영역) - 보안을 위해 API 키를 여기서 입력받습니다.
 with st.sidebar:
     st.header("⚙️ 평가 설정")
-    
-    # 비밀번호 형태로 입력받아 화면에 노출되지 않음
-    api_key_input = st.text_input("Google API Key 입력", type="password", help="발급받으신 Gemini API 키를 입력하세요.")
-    
+    api_key_input = st.text_input("Google API Key 입력", type="password")
     st.markdown("---")
-    target_grade = st.selectbox("학생 학교급", ["고등학교", "중학교", "초등학교"])
+    target_grade = st.selectbox("학생 학교급", ["고등학교", "중학교"])
     selected_category = st.selectbox("과제 유형 (평가 루브릭)", list(RUBRIC_DB.keys()))
-    
-    st.markdown("---")
-    st.info("💡 API 키는 저장되지 않으며, 현재 세션에서만 안전하게 사용됩니다.")
 
-# 현재 선택된 루브릭 화면에 살짝 보여주기
 current_rubric = RUBRIC_DB[selected_category]
-with st.expander("현재 적용된 평가 기준 확인하기"):
+
+# 선생님이 선택한 루브릭을 화면에서 직접 확인할 수 있도록 펼침 메뉴 제공
+with st.expander("📌 현재 적용된 세부 평가 기준(루브릭) 확인하기"):
     st.write(current_rubric)
 
-# 기능 탭 분리 (개별 입력 vs 엑셀 일괄 처리)
-tab1, tab2 = st.tabs(["단일 학생 평가 (직접 입력)", "다수 학생 일괄 평가 (엑셀 업로드)"])
+tab1, tab2, tab3 = st.tabs(["📝 텍스트 직접 입력", "📄 파일 업로드 (PDF/사진)", "📊 엑셀 일괄 평가"])
 
-# ------------------------------------------
-# 탭 1: 단일 학생 평가
-# ------------------------------------------
+# 탭 1
 with tab1:
-    st.subheader("과제 텍스트 입력")
-    student_input = st.text_area("학생이 작성한 글을 아래에 붙여넣으세요.", height=200, placeholder="여기에 과제 내용을 입력하세요...")
-    
-    if st.button("평가 시작하기", key="single_eval"):
-        if not api_key_input:
-            st.warning("👈 왼쪽 사이드바에서 Google API Key를 먼저 입력해 주세요.")
-        elif not student_input.strip():
-            st.warning("학생의 글을 입력해 주세요.")
+    student_input = st.text_area("학생이 작성한 글을 붙여넣으세요.", height=150)
+    if st.button("평가 시작", key="text_btn"):
+        if not api_key_input: st.error("👈 API Key를 입력해주세요.")
+        elif not student_input: st.warning("내용을 입력해주세요.")
         else:
-            with st.spinner("AI가 꼼꼼하게 채점하고 피드백을 작성 중입니다..."):
-                evaluation_result = evaluate_student_text(api_key_input, student_input, target_grade, current_rubric)
-                
-                # 결과 출력 (커스텀 CSS로 디자인된 박스 안에 출력)
-                st.markdown('<div class="result-box">', unsafe_allow_html=True)
-                st.markdown("### 📊 평가 결과")
-                st.write(evaluation_result)
-                st.markdown('</div>', unsafe_allow_html=True)
+            with st.spinner("루브릭을 바탕으로 심층 분석 중입니다..."):
+                result = evaluate_with_gemini(api_key_input, text_content=student_input, grade=target_grade, rubric=current_rubric)
+                st.markdown(f'<div class="result-box">{result}</div>', unsafe_allow_html=True)
 
-# ------------------------------------------
-# 탭 2: 다수 학생 일괄 평가 (엑셀/CSV)
-# ------------------------------------------
+# 탭 2
 with tab2:
-    st.subheader("파일 업로드 (CSV)")
-    st.markdown("이름(또는 학번)과 과제 내용이 포함된 CSV 파일을 업로드하세요. <br>필수 열 이름: **'이름'**, **'과제내용'**", unsafe_allow_html=True)
-    
-    uploaded_file = st.file_uploader("CSV 파일 선택", type=['csv'])
-    
-    if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
-        st.dataframe(df.head(3)) # 파일이 잘 올라왔는지 미리보기 제공
-        
-        if '과제내용' not in df.columns:
-            st.error("업로드한 파일에 '과제내용'이라는 열(Column)이 없습니다. 파일 양식을 확인해 주세요.")
+    st.markdown("학생이 제출한 **PDF**나 **손글씨 사진**을 올려주세요.")
+    uploaded_file = st.file_uploader("파일 선택", type=['pdf', 'png', 'jpg', 'jpeg'])
+    if st.button("문서 평가 시작", key="file_btn"):
+        if not api_key_input: st.error("👈 API Key를 입력해주세요.")
+        elif not uploaded_file: st.warning("파일을 업로드해주세요.")
         else:
-            if st.button("일괄 평가 시작", key="batch_eval"):
-                if not api_key_input:
-                    st.warning("👈 왼쪽 사이드바에서 Google API Key를 먼저 입력해 주세요.")
-                else:
-                    progress_text = "일괄 평가 진행 중..."
-                    my_bar = st.progress(0, text=progress_text)
-                    
-                    results = []
-                    total_students = len(df)
-                    
-                    for i, row in df.iterrows():
-                        text_to_eval = str(row['과제내용'])
-                        # AI 호출 (과부하 방지를 위해 살짝 대기)
-                        res = evaluate_student_text(api_key_input, text_to_eval, target_grade, current_rubric)
-                        results.append(res)
-                        
-                        # 진행률 바 업데이트
-                        progress_percent = int(((i + 1) / total_students) * 100)
-                        my_bar.progress(progress_percent, text=f"{progress_text} ({i+1}/{total_students}명 완료)")
-                        time.sleep(1) # API 호출 제한(Rate Limit) 방지용 대기 시간
-                    
-                    # 결과를 데이터프레임에 추가
-                    df['AI_피드백'] = results
-                    st.success("🎉 모든 학생의 평가가 완료되었습니다!")
-                    st.dataframe(df)
-                    
-                    # 결과를 다시 CSV로 다운로드할 수 있게 제공
-                    csv = df.to_csv(index=False).encode('utf-8-sig') # 한글 깨짐 방지 utf-8-sig
-                    st.download_button(
-                        label="📥 평가 결과 다운로드 (CSV)",
-                        data=csv,
-                        file_name="AI_평가결과.csv",
-                        mime="text/csv",
-                    )
+            with st.spinner("문서를 판독하고 루브릭에 맞춰 채점 중입니다..."):
+                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
+                    tmp_file.write(uploaded_file.getvalue())
+                    tmp_file_path = tmp_file.name
+                
+                result = evaluate_with_gemini(api_key_input, uploaded_file_path=tmp_file_path, grade=target_grade, rubric=current_rubric)
+                os.remove(tmp_file_path)
+                st.markdown(f'<div class="result-box">{result}</div>', unsafe_allow_html=True)
+
+# 탭 3
+with tab3:
+    st.markdown("필수 열 이름: **이름**, **과제내용**")
+    uploaded_csv = st.file_uploader("CSV 파일 선택", type=['csv'])
+    if uploaded_csv and st.button("일괄 채점", key="batch_btn"):
+        if not api_key_input: st.error("👈 API Key를 입력해주세요.")
+        else:
+            df = pd.read_csv(uploaded_csv)
+            if '과제내용' not in df.columns: st.error("'과제내용' 열이 없습니다.")
+            else:
+                progress_bar = st.progress(0)
+                results, total = [], len(df)
+                for i, row in df.iterrows():
+                    res = evaluate_with_gemini(api_key_input, text_content=str(row['과제내용']), grade=target_grade, rubric=current_rubric)
+                    results.append(res)
+                    progress_bar.progress(int(((i + 1) / total) * 100))
+                    time.sleep(1)
+                df['AI_피드백'] = results
+                st.success("채점 완료!")
+                st.download_button("결과 다운로드", df.to_csv(index=False).encode('utf-8-sig'), "평가결과.csv", "text/csv")
