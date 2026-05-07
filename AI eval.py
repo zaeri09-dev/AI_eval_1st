@@ -31,7 +31,7 @@ st.markdown("""
     .result-box { background-color: #f1f5f9; padding: 25px; border-radius: 12px; border-left: 5px solid #3b82f6; font-size: 15px; line-height: 1.7; color: #334155; margin-top: 15px; }
     
     /* ========================================== */
-    /* 🎨 사이드바 메뉴 디자인 */
+    /* 🎨 사이드바 스마트 폴더 메뉴 디자인 */
     /* ========================================== */
     [data-testid="stSidebar"] { background-color: #ffffff; }
     [data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"] { gap: 0.1rem; }
@@ -53,12 +53,12 @@ st.markdown("""
         background-color: #eff6ff; 
     }
     
-    /* 기본 텍스트 스타일 (글자 깨짐 방지 적용) */
+    /* 기본 텍스트 스타일 (글자 깨짐 방지) */
     [data-testid="stSidebar"] [data-testid="stRadio"] label p {
-        font-size: 14.5px; /* 글자 크기를 살짝 줄여서 한 줄에 맞춤 */
+        font-size: 14.5px;
         font-weight: 600;
         color: #475569;
-        white-space: nowrap; /* 글자가 밑으로 떨어지지 않게 강제 한 줄 처리 */
+        white-space: nowrap; 
     }
     
     [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {
@@ -69,9 +69,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 교육학적 세부 루브릭 데이터베이스 (가독성 대폭 개선)
+# 2. 교육학적 세부 루브릭 데이터베이스
 # ==========================================
-# 💡 [수정 필요] 상황에 맞게 루브릭의 내용과 점수를 수정하세요. (AI가 잘 읽도록 별표(*)와 줄바꿈을 유지해 주시면 좋습니다.)
+# 💡 [수정 필요] 상황에 맞게 루브릭의 내용과 점수를 수정하세요.
 RUBRIC_DB = {
     "고등_화학_실험보고서": """
 **[영역 1: 이론적 배경 및 가설]**
@@ -159,115 +159,142 @@ def generate_rubric_with_gemini(api_key, topic):
         return f"⚠️ 루브릭 생성 오류: {str(e)}"
 
 # ==========================================
-# 4. 화면 구성
+# 4. 화면 구성 및 스마트 폴더(아코디언) 메뉴 로직
 # ==========================================
+# 세션 상태(기억 장치) 초기화: 메뉴가 열려있는지 닫혀있는지, 현재 페이지가 어딘지 기억합니다.
+if 'menu_expanded' not in st.session_state:
+    st.session_state.menu_expanded = True
+if 'current_page' not in st.session_state:
+    st.session_state.current_page = "ㅤㅤ📄 단일 채점 (텍스트/파일)"
+
 with st.sidebar:
     st.markdown("<h2 style='color:#2563eb; font-weight:800; margin-bottom: 20px;'>🏫 AI 평가 보조</h2>", unsafe_allow_html=True)
     
-    main_menu = st.radio(
-        "메인메뉴", 
-        ["📋 AI 서술형 채점", "✨ AI 루브릭 설계"], 
-        label_visibility="collapsed"
-    )
+    # 💡 메뉴가 열렸을 때와 닫혔을 때 보여줄 항목들을 다르게 설정하여 자연스럽게 펼쳐지는 효과를 만듭니다.
+    if st.session_state.menu_expanded:
+        menu_options = [
+            "📂 AI 서술형 채점 ▾", 
+            "ㅤㅤ📄 단일 채점 (텍스트/파일)", 
+            "ㅤㅤ📁 학급 전체 채점 (엑셀)", 
+            "✨ AI 루브릭 설계"
+        ]
+    else:
+        menu_options = [
+            "📂 AI 서술형 채점 ▸", 
+            "✨ AI 루브릭 설계"
+        ]
     
-    sub_menu = None
-    if main_menu == "📋 AI 서술형 채점":
-        st.markdown("<div style='margin-top: -10px;'></div>", unsafe_allow_html=True)
-        sub_menu = st.radio(
-            "하위메뉴", 
-            ["ㅤㅤ📄 단일 채점 (텍스트/파일)", "ㅤㅤ📁 학급 전체 채점 (엑셀)"], 
-            label_visibility="collapsed"
-        )
-        
+    # 현재 보고 있는 페이지에 맞게 메뉴 선택 하이라이트 유지
+    try:
+        current_index = menu_options.index(st.session_state.current_page)
+    except ValueError:
+        current_index = 0 # 폴더가 닫혀서 하위 메뉴가 안 보일 때는 기본 폴더를 하이라이트
+
+    selected = st.radio("메뉴", menu_options, index=current_index, label_visibility="collapsed")
+    
+    # 클릭에 따른 작동 원리 (폴더 열기/닫기 또는 페이지 이동)
+    if selected == "📂 AI 서술형 채점 ▾":
+        st.session_state.menu_expanded = False
+        st.rerun() # 화면 새로고침하여 메뉴를 접습니다.
+    elif selected == "📂 AI 서술형 채점 ▸":
+        st.session_state.menu_expanded = True
+        st.rerun() # 화면 새로고침하여 메뉴를 펼칩니다.
+    elif selected != st.session_state.current_page:
+        st.session_state.current_page = selected
+        st.rerun() # 다른 메뉴를 눌렀을 때 해당 페이지로 이동합니다.
+
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.markdown("🔒 **시스템 설정**")
     api_key_input = st.text_input("Google API Key 입력", type="password", placeholder="AIzaSy...")
 
-st.markdown(f"<div class='main-title'>{main_menu.replace('📋 ', '').replace('✨ ', '')}</div>", unsafe_allow_html=True)
+# --- 메인 화면 렌더링 로직 ---
+# 폴더 이름("📂 AI 서술형 채점 ▾")은 타이틀에서 깔끔하게 보이도록 문자열을 다듬습니다.
+display_title = "📋 AI 서술형 채점" if "AI 서술형 채점" in st.session_state.current_page else "✨ AI 루브릭 설계"
+st.markdown(f"<div class='main-title'>{display_title}</div>", unsafe_allow_html=True)
 
 # ------------------------------------------
-# 메뉴 1: AI 서술형 채점 
+# 메뉴 1: 단일 채점 모드
 # ------------------------------------------
-if main_menu == "📋 AI 서술형 채점":
+if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)":
     st.markdown("<div class='sub-title'>교육학적 루브릭 기반 학생 과제 심층 평가</div>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("#### ⚙️ 평가 기준 선택")
+    selected_category = st.selectbox("적용할 루브릭(평가 기준)을 선택하세요.", list(RUBRIC_DB.keys()))
     
-    if sub_menu == "ㅤㅤ📄 단일 채점 (텍스트/파일)":
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("#### ⚙️ 평가 기준 선택")
-        selected_category = st.selectbox("적용할 루브릭(평가 기준)을 선택하세요.", list(RUBRIC_DB.keys()))
-        
-        # 화면에 루브릭이 예쁘게 줄바꿈 되어 보이도록 마크다운 처리 적용
-        with st.expander("📌 선택된 루브릭 상세 보기"):
-            st.markdown(RUBRIC_DB[selected_category])
-        
-        st.markdown("---")
-        st.markdown("#### 📄 학생 과제 입력")
-        upload_type = st.radio("입력 방식을 선택하세요.", ["직접 텍스트 입력", "파일 업로드 (PDF/사진)"], horizontal=True)
-        
-        student_text, uploaded_file_path, tmp_path = None, None, None
-        
-        if upload_type == "직접 텍스트 입력":
-            student_text = st.text_area("학생이 작성한 글을 붙여넣으세요.", height=150)
+    with st.expander("📌 선택된 루브릭 상세 보기"):
+        st.markdown(RUBRIC_DB[selected_category])
+    
+    st.markdown("---")
+    st.markdown("#### 📄 학생 과제 입력")
+    upload_type = st.radio("입력 방식을 선택하세요.", ["직접 텍스트 입력", "파일 업로드 (PDF/사진)"], horizontal=True)
+    
+    student_text, uploaded_file_path, tmp_path = None, None, None
+    
+    if upload_type == "직접 텍스트 입력":
+        student_text = st.text_area("학생이 작성한 글을 붙여넣으세요.", height=150)
+    else:
+        uploaded_file = st.file_uploader("학생의 과제 파일(PDF, JPG, PNG) 업로드", type=['pdf', 'png', 'jpg', 'jpeg'])
+        if uploaded_file:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
+                tmp_file.write(uploaded_file.getvalue())
+                tmp_path = tmp_file.name
+                uploaded_file_path = tmp_path
+
+    if st.button("🚀 단일 채점 시작", key="btn_single"):
+        if not api_key_input: st.error("👈 사이드바에서 API Key를 입력해주세요.")
+        elif not student_text and not uploaded_file_path: st.warning("과제 내용을 입력하거나 업로드해주세요.")
         else:
-            uploaded_file = st.file_uploader("학생의 과제 파일(PDF, JPG, PNG) 업로드", type=['pdf', 'png', 'jpg', 'jpeg'])
-            if uploaded_file:
-                with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
-                    tmp_file.write(uploaded_file.getvalue())
-                    tmp_path = tmp_file.name
-                    uploaded_file_path = tmp_path
+            with st.spinner("AI가 채점을 진행 중입니다..."):
+                result = evaluate_with_gemini(api_key_input, text_content=student_text, uploaded_file_path=uploaded_file_path, rubric=RUBRIC_DB[selected_category])
+                st.markdown(f'<div class="result-box"><b>[AI 채점 결과]</b><br><br>{result}</div>', unsafe_allow_html=True)
+            if tmp_path: os.remove(tmp_path) 
+    st.markdown("</div>", unsafe_allow_html=True)
 
-        if st.button("🚀 단일 채점 시작", key="btn_single"):
-            if not api_key_input: st.error("👈 사이드바에서 API Key를 입력해주세요.")
-            elif not student_text and not uploaded_file_path: st.warning("과제 내용을 입력하거나 업로드해주세요.")
+# ------------------------------------------
+# 메뉴 2: 학급 전체 채점 모드
+# ------------------------------------------
+elif st.session_state.current_page == "ㅤㅤ📁 학급 전체 채점 (엑셀)":
+    st.markdown("<div class='sub-title'>학급 전체 과제를 한 번에 심층 평가</div>", unsafe_allow_html=True)
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.markdown("#### 📊 학급 일괄 채점 (CSV 업로드)")
+    st.markdown("필수 열 이름: **이름**, **과제내용**")
+    
+    batch_category = st.selectbox("일괄 채점에 적용할 루브릭 선택", list(RUBRIC_DB.keys()), key="batch_cat")
+    
+    with st.expander("📌 선택된 루브릭 상세 보기"):
+        st.markdown(RUBRIC_DB[batch_category])
+        
+    uploaded_csv = st.file_uploader("CSV 파일 선택", type=['csv'])
+    
+    if uploaded_csv and st.button("🚀 일괄 채점 시작", key="btn_batch"):
+        if not api_key_input: st.error("👈 사이드바에서 API Key를 입력해주세요.")
+        else:
+            try: df = pd.read_csv(uploaded_csv, encoding='utf-8')
+            except UnicodeDecodeError:
+                uploaded_csv.seek(0)
+                df = pd.read_csv(uploaded_csv, encoding='cp949')
+
+            if '과제내용' not in df.columns: st.error("'과제내용' 열을 찾을 수 없습니다.")
             else:
-                with st.spinner("AI가 채점을 진행 중입니다..."):
-                    result = evaluate_with_gemini(api_key_input, text_content=student_text, uploaded_file_path=uploaded_file_path, rubric=RUBRIC_DB[selected_category])
-                    st.markdown(f'<div class="result-box"><b>[AI 채점 결과]</b><br><br>{result}</div>', unsafe_allow_html=True)
-                if tmp_path: os.remove(tmp_path) 
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    elif sub_menu == "ㅤㅤ📁 학급 전체 채점 (엑셀)":
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.markdown("#### 📊 학급 일괄 채점 (CSV 업로드)")
-        st.markdown("필수 열 이름: **이름**, **과제내용**")
-        
-        batch_category = st.selectbox("일괄 채점에 적용할 루브릭 선택", list(RUBRIC_DB.keys()), key="batch_cat")
-        
-        with st.expander("📌 선택된 루브릭 상세 보기"):
-            st.markdown(RUBRIC_DB[batch_category])
-            
-        uploaded_csv = st.file_uploader("CSV 파일 선택", type=['csv'])
-        
-        if uploaded_csv and st.button("🚀 일괄 채점 시작", key="btn_batch"):
-            if not api_key_input: st.error("👈 사이드바에서 API Key를 입력해주세요.")
-            else:
-                # 💡 [수정 필요] 윈도우 엑셀의 한글 깨짐 오류 방지 로직입니다. (그대로 두시면 됩니다.)
-                try: df = pd.read_csv(uploaded_csv, encoding='utf-8')
-                except UnicodeDecodeError:
-                    uploaded_csv.seek(0)
-                    df = pd.read_csv(uploaded_csv, encoding='cp949')
-
-                if '과제내용' not in df.columns: st.error("'과제내용' 열을 찾을 수 없습니다.")
-                else:
-                    my_bar = st.progress(0, text="채점 진행 중...")
-                    results, total = [], len(df)
+                my_bar = st.progress(0, text="채점 진행 중...")
+                results, total = [], len(df)
+                
+                for i, row in df.iterrows():
+                    res = evaluate_with_gemini(api_key_input, text_content=str(row['과제내용']), rubric=RUBRIC_DB[batch_category])
+                    results.append(res)
+                    my_bar.progress(int(((i + 1) / total) * 100), text=f"채점 중... ({i+1}/{total}명 완료)")
+                    time.sleep(1)
                     
-                    for i, row in df.iterrows():
-                        res = evaluate_with_gemini(api_key_input, text_content=str(row['과제내용']), rubric=RUBRIC_DB[batch_category])
-                        results.append(res)
-                        my_bar.progress(int(((i + 1) / total) * 100), text=f"채점 중... ({i+1}/{total}명 완료)")
-                        time.sleep(1)
-                        
-                    df['AI_피드백'] = results
-                    st.success("✅ 채점 완료!")
-                    st.dataframe(df)
-                    st.download_button("📥 평가 결과 다운로드 (CSV)", df.to_csv(index=False).encode('utf-8-sig'), "일괄평가결과.csv", "text/csv")
-        st.markdown("</div>", unsafe_allow_html=True)
+                df['AI_피드백'] = results
+                st.success("✅ 채점 완료!")
+                st.dataframe(df)
+                st.download_button("📥 평가 결과 다운로드 (CSV)", df.to_csv(index=False).encode('utf-8-sig'), "일괄평가결과.csv", "text/csv")
+    st.markdown("</div>", unsafe_allow_html=True)
 
 # ------------------------------------------
-# 메뉴 2: AI 루브릭 설계 
+# 메뉴 3: AI 루브릭 설계 
 # ------------------------------------------
-elif main_menu == "✨ AI 루브릭 설계":
+elif st.session_state.current_page == "✨ AI 루브릭 설계":
     st.markdown("<div class='sub-title'>수행평가 주제 기반 3단계 성취수준 자동 생성기</div>", unsafe_allow_html=True)
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     
