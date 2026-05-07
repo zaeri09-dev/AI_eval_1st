@@ -77,26 +77,39 @@ if 'current_page' not in st.session_state:
     st.session_state.current_page = "ㅤㅤ📄 단일 채점 (텍스트/파일)"
 
 # ==========================================
-# 3. AI 엔진 (gemini-3-flash-preview)
+# 3. AI 엔진 (학번/이름 인식 기능 추가)
 # ==========================================
-def evaluate_with_gemini(api_key, text_content=None, uploaded_file_path=None, rubric=""):
+def evaluate_with_gemini(api_key, text_content=None, uploaded_file_path=None, rubric="", student_id="", student_name=""):
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel("gemini-3-flash-preview")
+        
+        # 💡 [수정 필요] AI에게 학생의 이름을 부르도록 프롬프트(지시사항)를 업데이트했습니다.
         prompt = f"""
         너는 고등학생을 지도하는 전문적이고 따뜻한 교사야. 
         아래 [교육학적 세부 루브릭]을 엄격하게 적용하여 학생의 과제를 채점하고 피드백을 줘.
+        
         1. 각 영역별 점수와 성취 수준(우수/보통/미흡)을 명시하고 이유를 적어줘.
-        2. 마지막에는 따뜻한 종합 피드백을 3문장 작성해.
+        2. 마지막에는 따뜻한 종합 피드백을 3문장 작성해. 
+           (주의: 학생의 학번과 이름 정보가 제공되었다면, 피드백 첫 줄에 "ㅇㅇㅇ 학생, ~" 이라고 다정하게 이름을 부르며 시작해줘.)
+        
         [교육학적 세부 루브릭]
         {rubric}
         """
+        
         contents = [prompt]
+        
+        # 학생 정보가 있으면 AI에게 전달할 보따리에 추가
+        if student_id or student_name:
+            contents.append(f"\n[학생 정보]\n- 학번: {student_id}\n- 이름: {student_name}\n")
+            
         if text_content: contents.append(f"\n[학생 과제 내용]\n{text_content}")
         if uploaded_file_path:
             uploaded_file = genai.upload_file(path=uploaded_file_path)
             contents.append(uploaded_file)
+            
         response = model.generate_content(contents, generation_config={"temperature": 0.2})
+        
         if uploaded_file_path: genai.delete_file(uploaded_file.name)
         return response.text 
     except Exception as e:
@@ -137,7 +150,6 @@ with st.sidebar:
 
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     st.markdown("🔒 **시스템 설정**")
-    # 💡 [수정 필요] API 키 입력 부분
     api_key_input = st.text_input("Google API Key 입력", type="password", placeholder="AIzaSy...")
 
 # ------------------------------------------
@@ -169,7 +181,15 @@ if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)
             st.markdown(current_rubric_text)
         
         st.markdown("---")
-        st.markdown("#### 📄 학생 과제 입력")
+        st.markdown("#### 📄 학생 정보 및 과제 입력")
+        
+        # 💡 [새 기능] 단일 채점에서도 학번과 이름을 넣을 수 있도록 칸을 마련했습니다.
+        col1, col2 = st.columns(2)
+        with col1:
+            single_std_id = st.text_input("학생 학번 (선택)", placeholder="예: 10101")
+        with col2:
+            single_std_name = st.text_input("학생 이름 (선택)", placeholder="예: 홍길동")
+            
         upload_type = st.radio("입력 방식", ["직접 텍스트 입력", "파일 업로드 (PDF/사진)"], horizontal=True)
         
         student_text, uploaded_file_path, tmp_path = None, None, None
@@ -188,18 +208,21 @@ if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)
             elif not student_text and not uploaded_file_path: st.warning("내용을 입력해주세요.")
             else:
                 with st.spinner("AI가 채점 중입니다..."):
-                    result = evaluate_with_gemini(api_key_input, text_content=student_text, uploaded_file_path=uploaded_file_path, rubric=current_rubric_text)
+                    result = evaluate_with_gemini(api_key_input, text_content=student_text, uploaded_file_path=uploaded_file_path, rubric=current_rubric_text, student_id=single_std_id, student_name=single_std_name)
                     st.markdown(f'<div class="result-box"><b>[AI 채점 결과]</b><br><br>{result}</div>', unsafe_allow_html=True)
                 if tmp_path: os.remove(tmp_path) 
 
 # ------------------------------------------
-# 메뉴 2: 학급 전체 채점 
+# 메뉴 2: 학급 전체 채점 (학번, 이름 인식 강화)
 # ------------------------------------------
 elif st.session_state.current_page == "ㅤㅤ📁 학급 전체 채점 (엑셀)":
     st.markdown("<div class='main-title'>📋 AI 서술형 채점</div>", unsafe_allow_html=True)
     st.markdown("<div class='sub-title'>학급 전체 과제를 한 번에 심층 평가합니다.</div>", unsafe_allow_html=True)
     
     st.markdown("#### 📊 학급 일괄 채점")
+    # 💡 [수정 필요] 선생님이 보실 안내 문구에 '학번'을 필수 열로 명시했습니다.
+    st.markdown("⚠️ 엑셀 파일 필수 열 이름: **학번**, **이름**, **과제내용**")
+    
     batch_rubric_name = st.selectbox("일괄 채점에 적용할 루브릭", list(st.session_state.rubric_binder.keys()))
     
     with st.expander("📌 선택된 루브릭 상세 보기"):
@@ -212,19 +235,32 @@ elif st.session_state.current_page == "ㅤㅤ📁 학급 전체 채점 (엑셀)"
             try: df = pd.read_csv(uploaded_csv, encoding='utf-8')
             except: df = pd.read_csv(uploaded_csv, encoding='cp949')
             
-            if '과제내용' not in df.columns: st.error("'과제내용' 열 없음")
+            # 💡 [수정 필요] 업로드된 엑셀에 학번, 이름, 과제내용이 모두 있는지 꼼꼼하게 확인합니다.
+            if '과제내용' not in df.columns or '학번' not in df.columns or '이름' not in df.columns: 
+                st.error("엑셀 파일의 첫 번째 줄(제목)에 '학번', '이름', '과제내용' 열이 모두 있는지 확인해 주세요.")
             else:
                 my_bar = st.progress(0, text="채점 중...")
                 results, total = [], len(df)
                 for i, row in df.iterrows():
-                    res = evaluate_with_gemini(api_key_input, text_content=str(row['과제내용']), rubric=st.session_state.rubric_binder[batch_rubric_name])
+                    # 빈칸일 경우를 대비해 안전하게 학번과 이름을 문자열로 꺼냅니다.
+                    std_id = str(row['학번']) if pd.notna(row['학번']) else ""
+                    std_name = str(row['이름']) if pd.notna(row['이름']) else ""
+                    
+                    res = evaluate_with_gemini(
+                        api_key=api_key_input, 
+                        text_content=str(row['과제내용']), 
+                        rubric=st.session_state.rubric_binder[batch_rubric_name],
+                        student_id=std_id,
+                        student_name=std_name
+                    )
                     results.append(res)
                     my_bar.progress(int(((i + 1) / total) * 100))
                     time.sleep(1)
+                
                 df['AI_피드백'] = results
                 st.success("✅ 완료!")
                 st.dataframe(df)
-                st.download_button("📥 다운로드", df.to_csv(index=False).encode('utf-8-sig'), "결과.csv", "text/csv")
+                st.download_button("📥 결과 다운로드", df.to_csv(index=False).encode('utf-8-sig'), "일괄채점결과.csv", "text/csv")
 
 # ------------------------------------------
 # 메뉴 3: AI 루브릭 설계
