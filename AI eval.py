@@ -31,17 +31,12 @@ st.markdown("""
     .result-box { background-color: #f1f5f9; padding: 25px; border-radius: 12px; border-left: 5px solid #3b82f6; font-size: 15px; line-height: 1.7; color: #334155; margin-top: 15px; }
     
     /* ========================================== */
-    /* 🎨 사이드바 메뉴 디자인 (첨부 이미지 스타일 완벽 구현) */
+    /* 🎨 사이드바 메뉴 디자인 */
     /* ========================================== */
     [data-testid="stSidebar"] { background-color: #ffffff; }
-    
-    /* 라디오 버튼 간격 조절 */
     [data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"] { gap: 0.1rem; }
-    
-    /* 기본 라디오 원형 버튼 완전히 숨기기 */
     [data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child { display: none; }
     
-    /* 메뉴 항목(레이블) 디자인 */
     [data-testid="stSidebar"] [data-testid="stRadio"] label {
         padding: 10px 14px;
         border-radius: 10px;
@@ -50,24 +45,22 @@ st.markdown("""
         margin-bottom: 4px;
     }
     
-    /* 마우스 올렸을 때 배경색 */
     [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
         background-color: #f1f5f9;
     }
     
-    /* 선택된 메뉴 배경색 (연파랑) */
     [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
         background-color: #eff6ff; 
     }
     
-    /* 기본 텍스트 스타일 */
+    /* 기본 텍스트 스타일 (글자 깨짐 방지 적용) */
     [data-testid="stSidebar"] [data-testid="stRadio"] label p {
-        font-size: 16px;
+        font-size: 14.5px; /* 글자 크기를 살짝 줄여서 한 줄에 맞춤 */
         font-weight: 600;
         color: #475569;
+        white-space: nowrap; /* 글자가 밑으로 떨어지지 않게 강제 한 줄 처리 */
     }
     
-    /* 선택된 메뉴 텍스트 스타일 (쨍한 파란색) */
     [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {
         color: #2563eb !important;
         font-weight: 700;
@@ -76,19 +69,42 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 교육학적 세부 루브릭 데이터베이스
+# 2. 교육학적 세부 루브릭 데이터베이스 (가독성 대폭 개선)
 # ==========================================
-# 💡 [수정 필요] 상황에 맞게 루브릭의 내용과 점수를 수정하세요.
+# 💡 [수정 필요] 상황에 맞게 루브릭의 내용과 점수를 수정하세요. (AI가 잘 읽도록 별표(*)와 줄바꿈을 유지해 주시면 좋습니다.)
 RUBRIC_DB = {
     "고등_화학_실험보고서": """
-    [영역 1: 이론적 배경 및 가설] 우수(25-30): 핵심 화학 원리 정확히 설명, 논리적 가설 설정 / 보통(15-24): 원리 설명 일부 누락, 가설 연결성 부족 / 미흡(0-14): 원리 부정확, 가설 없음
-    [영역 2: 결과 분석 및 해석] 우수(35-40): 데이터 과학적 변환, 독립/종속 변인 심층 분석 / 보통(20-34): 표면적 데이터 제시, 원리 해석 부족 / 미흡(0-19): 사실 나열, 해석 오류
-    [영역 3: 오차 논의] 우수(25-30): 오차 원인을 화학적/환경적 요인으로 다각도 분석, 구체적 개선안 / 보통(15-24): 단순 계산 실수로 언급 / 미흡(0-14): 오차 분석 없음
+**[영역 1: 이론적 배경 및 가설]**
+* **우수(25-30점)**: 핵심 화학 원리를 정확히 설명하고, 이를 바탕으로 논리적인 가설을 설정함
+* **보통(15-24점)**: 원리 설명이 일부 누락되었거나, 가설과의 연결성이 다소 부족함
+* **미흡(0-14점)**: 원리 설명이 부정확하거나 가설이 없음
+
+**[영역 2: 결과 분석 및 해석]**
+* **우수(35-40점)**: 데이터를 과학적으로 변환하고, 독립/종속 변인의 관계를 심층적으로 분석함
+* **보통(20-34점)**: 표면적인 데이터만 제시하였으며, 원리를 통한 해석이 부족함
+* **미흡(0-19점)**: 단순 사실 나열에 그치거나 해석에 오류가 있음
+
+**[영역 3: 오차 논의]**
+* **우수(25-30점)**: 오차 원인을 화학적/환경적 요인으로 다각도 분석하고 구체적 개선안을 제시함
+* **보통(15-24점)**: 오차 원인을 단순 계산이나 측정 실수 정도로만 언급함
+* **미흡(0-14점)**: 오차 분석이 전혀 없음
     """,
+    
     "고등_과학_논술평가": """
-    [영역 1: 과학적 사실의 정확성] 우수(35-40): 교과 개념을 정확히 적용하여 논제 해결 / 보통(20-34): 일부 개념 오개념 존재 / 미흡(0-19): 과학적 근거 부족
-    [영역 2: 논리적 전개] 우수(25-30): 서론-본론-결론이 명확하고 문장 간 연결이 매끄러움 / 보통(15-24): 흐름이 다소 끊어짐 / 미흡(0-14): 주장만 있고 근거가 불명확함
-    [영역 3: 문제 해결 및 창의성] 우수(25-30): 사회적/환경적 문제와 연계하여 독창적 대안 제시 / 보통(15-24): 일반적이고 뻔한 대안 제시 / 미흡(0-14): 대안 제시 없음
+**[영역 1: 과학적 사실의 정확성]**
+* **우수(35-40점)**: 교과 개념을 정확히 적용하여 논제를 완벽히 해결함
+* **보통(20-34점)**: 개념 적용을 시도했으나 일부 오개념이 존재함
+* **미흡(0-19점)**: 과학적 근거가 매우 부족함
+
+**[영역 2: 논리적 전개]**
+* **우수(25-30점)**: 서론-본론-결론이 명확하고 문장 간 연결이 매끄러움
+* **보통(15-24점)**: 흐름이 다소 끊어지거나 논리적 비약이 있음
+* **미흡(0-14점)**: 주장만 있고 이를 뒷받침하는 근거가 불명확함
+
+**[영역 3: 문제 해결 및 창의성]**
+* **우수(25-30점)**: 사회적/환경적 문제와 연계하여 독창적인 대안을 제시함
+* **보통(15-24점)**: 일반적이고 누구나 생각할 수 있는 뻔한 대안을 제시함
+* **미흡(0-14점)**: 문제에 대한 대안 제시가 전혀 없음
     """
 }
 
@@ -143,12 +159,11 @@ def generate_rubric_with_gemini(api_key, topic):
         return f"⚠️ 루브릭 생성 오류: {str(e)}"
 
 # ==========================================
-# 4. 화면 구성 (앱 느낌의 내비게이션 UI)
+# 4. 화면 구성
 # ==========================================
 with st.sidebar:
     st.markdown("<h2 style='color:#2563eb; font-weight:800; margin-bottom: 20px;'>🏫 AI 평가 보조</h2>", unsafe_allow_html=True)
     
-    # 메인 메뉴 (아이콘 추가)
     main_menu = st.radio(
         "메인메뉴", 
         ["📋 AI 서술형 채점", "✨ AI 루브릭 설계"], 
@@ -157,7 +172,6 @@ with st.sidebar:
     
     sub_menu = None
     if main_menu == "📋 AI 서술형 채점":
-        # 하위 메뉴: 투명 문자(ㅤ)를 사용하여 이미지처럼 들여쓰기(Indentation) 효과 구현
         st.markdown("<div style='margin-top: -10px;'></div>", unsafe_allow_html=True)
         sub_menu = st.radio(
             "하위메뉴", 
@@ -169,7 +183,6 @@ with st.sidebar:
     st.markdown("🔒 **시스템 설정**")
     api_key_input = st.text_input("Google API Key 입력", type="password", placeholder="AIzaSy...")
 
-# --- 메인 화면 로직 ---
 st.markdown(f"<div class='main-title'>{main_menu.replace('📋 ', '').replace('✨ ', '')}</div>", unsafe_allow_html=True)
 
 # ------------------------------------------
@@ -183,8 +196,9 @@ if main_menu == "📋 AI 서술형 채점":
         st.markdown("#### ⚙️ 평가 기준 선택")
         selected_category = st.selectbox("적용할 루브릭(평가 기준)을 선택하세요.", list(RUBRIC_DB.keys()))
         
+        # 화면에 루브릭이 예쁘게 줄바꿈 되어 보이도록 마크다운 처리 적용
         with st.expander("📌 선택된 루브릭 상세 보기"):
-            st.write(RUBRIC_DB[selected_category])
+            st.markdown(RUBRIC_DB[selected_category])
         
         st.markdown("---")
         st.markdown("#### 📄 학생 과제 입력")
@@ -218,11 +232,16 @@ if main_menu == "📋 AI 서술형 채점":
         st.markdown("필수 열 이름: **이름**, **과제내용**")
         
         batch_category = st.selectbox("일괄 채점에 적용할 루브릭 선택", list(RUBRIC_DB.keys()), key="batch_cat")
+        
+        with st.expander("📌 선택된 루브릭 상세 보기"):
+            st.markdown(RUBRIC_DB[batch_category])
+            
         uploaded_csv = st.file_uploader("CSV 파일 선택", type=['csv'])
         
         if uploaded_csv and st.button("🚀 일괄 채점 시작", key="btn_batch"):
             if not api_key_input: st.error("👈 사이드바에서 API Key를 입력해주세요.")
             else:
+                # 💡 [수정 필요] 윈도우 엑셀의 한글 깨짐 오류 방지 로직입니다. (그대로 두시면 됩니다.)
                 try: df = pd.read_csv(uploaded_csv, encoding='utf-8')
                 except UnicodeDecodeError:
                     uploaded_csv.seek(0)
