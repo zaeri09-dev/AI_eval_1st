@@ -60,7 +60,7 @@ FEW_SHOT_EXAMPLES = """
 def evaluate_with_gemini(api_key, text_content=None, uploaded_file_path=None, grade="", rubric=""):
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-3-flash-preview")
         
         prompt = f"""
         너는 {grade} 학생들을 지도하는 꼼꼼하고 통찰력 있는 교사야. 
