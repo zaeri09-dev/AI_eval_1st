@@ -1025,7 +1025,7 @@ with st.sidebar:
     )
 
     if not api_key:
-        st.caption("API Key는 입력칸, Streamlit secrets, 환경변수 GEMINI_API_KEY 순서로 읽습니다.")
+        st.caption("")
 
 
 # ==========================================
