@@ -1008,7 +1008,7 @@ with st.sidebar:
     api_key_input = st.text_input(
         "Google API Key 입력",
         type="password",
-        placeholder="AIzaSy...",
+        placeholder="비워 두면 Streamlit Secrets의 GEMINI_API_KEY를 자동 사용합니다.",
     )
     api_key = get_api_key_from_inputs(api_key_input)
 
@@ -1024,8 +1024,13 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-    if not api_key:
-        st.caption("")
+    if api_key:
+        if api_key_input.strip():
+            st.caption("✅ 화면에 직접 입력한 API Key를 사용 중입니다.")
+        else:
+            st.caption("✅ Streamlit Secrets의 GEMINI_API_KEY를 사용 중입니다.")
+    else:
+        st.caption("⚠️ API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
 
 
 # ==========================================
@@ -1091,7 +1096,7 @@ if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)
 
     if st.button("🚀 채점 시작", use_container_width=True):
         if not api_key:
-            st.error("왼쪽 사이드바에 Google API Key를 입력해 주세요.")
+            st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
 
         elif upload_type == "직접 텍스트 입력" and not student_text.strip():
             st.warning("학생 답안 내용을 입력해 주세요.")
@@ -1312,7 +1317,7 @@ elif st.session_state.current_page == "ㅤㅤ📁 학급 전체 채점 (엑셀/C
 
             if st.button("🚀 일괄 채점 시작", use_container_width=True):
                 if not api_key:
-                    st.error("왼쪽 사이드바에 Google API Key를 입력해 주세요.")
+                    st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
 
                 else:
                     df_work = df_input.head(int(max_rows)).copy()
@@ -1474,7 +1479,7 @@ elif st.session_state.current_page == "✨ AI 루브릭 설계":
 
     if st.button("🪄 설계 요청", use_container_width=True):
         if not api_key:
-            st.error("왼쪽 사이드바에 Google API Key를 입력해 주세요.")
+            st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
 
         elif not rubric_topic.strip():
             st.warning("수행평가 주제를 입력해 주세요.")
