@@ -269,11 +269,10 @@ def safe_get_secret(key: str) -> str:
         return ""
 
 
-def get_api_key_from_inputs(sidebar_value: str) -> str:
-    """입력칸 → Streamlit secrets → 환경변수 순서로 API Key를 찾습니다."""
+def get_api_key() -> str:
+    """Streamlit Secrets → 환경변수 순서로 API Key를 조용히 찾습니다."""
     return (
-        sidebar_value.strip()
-        or safe_get_secret("GEMINI_API_KEY").strip()
+        safe_get_secret("GEMINI_API_KEY").strip()
         or os.environ.get("GEMINI_API_KEY", "").strip()
     )
 
@@ -649,7 +648,7 @@ def evaluate_with_gemini(
     Gemini로 평가하고, 표준화된 dict와 원문 응답을 함께 돌려줍니다.
     """
     if not api_key:
-        raise ValueError("API Key가 없습니다.")
+        raise ValueError("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY가 등록되어 있는지 확인해 주세요.")
 
     if not rubric.strip():
         raise ValueError("루브릭이 비어 있습니다.")
@@ -715,7 +714,7 @@ def generate_rubric_with_gemini(
     score_scale: int = 100,
 ) -> str:
     if not api_key:
-        raise ValueError("API Key가 없습니다.")
+        raise ValueError("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY가 등록되어 있는지 확인해 주세요.")
 
     if not topic.strip():
         raise ValueError("수행평가 주제를 입력해 주세요.")
@@ -1005,12 +1004,7 @@ with st.sidebar:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("🔒 **시스템 설정**")
 
-    api_key_input = st.text_input(
-        "Google API Key 입력",
-        type="password",
-        placeholder="비워 두면 Streamlit Secrets의 GEMINI_API_KEY를 자동 사용합니다.",
-    )
-    api_key = get_api_key_from_inputs(api_key_input)
+    api_key = get_api_key()
 
     st.markdown(
         f"""
@@ -1023,14 +1017,6 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-
-    if api_key:
-        if api_key_input.strip():
-            st.caption("✅ 화면에 직접 입력한 API Key를 사용 중입니다.")
-        else:
-            st.caption("✅ Streamlit Secrets의 GEMINI_API_KEY를 사용 중입니다.")
-    else:
-        st.caption("⚠️ API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
 
 
 # ==========================================
@@ -1096,7 +1082,7 @@ if st.session_state.current_page == "ㅤㅤ📄 단일 채점 (텍스트/파일)
 
     if st.button("🚀 채점 시작", use_container_width=True):
         if not api_key:
-            st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
+            st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY가 등록되어 있는지 확인해 주세요.")
 
         elif upload_type == "직접 텍스트 입력" and not student_text.strip():
             st.warning("학생 답안 내용을 입력해 주세요.")
@@ -1317,7 +1303,7 @@ elif st.session_state.current_page == "ㅤㅤ📁 학급 전체 채점 (엑셀/C
 
             if st.button("🚀 일괄 채점 시작", use_container_width=True):
                 if not api_key:
-                    st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
+                    st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY가 등록되어 있는지 확인해 주세요.")
 
                 else:
                     df_work = df_input.head(int(max_rows)).copy()
@@ -1479,7 +1465,7 @@ elif st.session_state.current_page == "✨ AI 루브릭 설계":
 
     if st.button("🪄 설계 요청", use_container_width=True):
         if not api_key:
-            st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY를 등록했는지 확인해 주세요.")
+            st.error("API Key가 없습니다. Streamlit Cloud Secrets에 GEMINI_API_KEY가 등록되어 있는지 확인해 주세요.")
 
         elif not rubric_topic.strip():
             st.warning("수행평가 주제를 입력해 주세요.")
