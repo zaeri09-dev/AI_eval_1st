@@ -37,89 +37,141 @@ st.set_page_config(page_title="교사용 AI 채점 대시보드", page_icon="�
 st.markdown(
     """
     <style>
-    .stApp { background-color: #f8fafc; }
-    * { font-family: 'Pretendard', 'Noto Sans KR', sans-serif; }
+    /*
+    다크모드 대응 핵심:
+    - Streamlit의 현재 테마 색상 변수(--background-color, --text-color 등)를 우선 사용합니다.
+    - 브라우저/Streamlit 테마가 바뀌어도 글자와 카드가 서로 비슷한 색으로 겹치지 않게 했습니다.
+    - 기존 파란색 포인트와 둥근 카드 분위기는 유지했습니다.
+    */
+    :root {
+        --ai-bg: var(--background-color, #f8fafc);
+        --ai-card-bg: var(--secondary-background-color, #ffffff);
+        --ai-text: var(--text-color, #1e293b);
+        --ai-primary: var(--primary-color, #2563eb);
+        --ai-border: color-mix(in srgb, var(--ai-text) 16%, transparent);
+        --ai-muted: color-mix(in srgb, var(--ai-text) 64%, transparent);
+        --ai-muted-strong: color-mix(in srgb, var(--ai-text) 78%, transparent);
+        --ai-soft-bg: color-mix(in srgb, var(--ai-card-bg) 88%, var(--ai-bg));
+        --ai-result-bg: color-mix(in srgb, var(--ai-card-bg) 88%, var(--ai-primary) 6%);
+        --ai-notice-bg: color-mix(in srgb, var(--ai-card-bg) 86%, var(--ai-primary) 12%);
+        --ai-notice-border: color-mix(in srgb, var(--ai-primary) 35%, var(--ai-border));
+        --ai-danger-bg: color-mix(in srgb, var(--ai-card-bg) 86%, #f97316 12%);
+        --ai-danger-border: color-mix(in srgb, #f97316 42%, var(--ai-border));
+        --ai-success-bg: color-mix(in srgb, var(--ai-card-bg) 86%, #10b981 14%);
+        --ai-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --ai-bg: var(--background-color, #0f172a);
+            --ai-card-bg: var(--secondary-background-color, #111827);
+            --ai-text: var(--text-color, #e5e7eb);
+            --ai-primary: var(--primary-color, #60a5fa);
+            --ai-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+        }
+    }
+
+    .stApp,
+    [data-testid="stAppViewContainer"] {
+        background-color: var(--ai-bg) !important;
+        color: var(--ai-text) !important;
+    }
+
+    * {
+        font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+    }
 
     .main-title {
         font-size: 28px;
         font-weight: 800;
-        color: #1e293b;
+        color: var(--ai-text);
         margin-bottom: 5px;
         margin-top: 10px;
     }
 
     .sub-title {
         font-size: 14.5px;
-        color: #64748b;
+        color: var(--ai-muted);
         margin-bottom: 30px;
     }
 
     .stButton>button {
-        background-color: #3b82f6;
-        color: white;
+        background-color: var(--ai-primary) !important;
+        color: #ffffff !important;
         border-radius: 8px;
         font-weight: 600;
         padding: 0.5rem 1rem;
-        border: none;
+        border: 1px solid var(--ai-primary) !important;
         transition: all 0.2s;
     }
 
     .stButton>button:hover {
-        background-color: #2563eb;
+        filter: brightness(0.94);
         transform: translateY(-1px);
-        color: white;
+        color: #ffffff !important;
+        border-color: var(--ai-primary) !important;
     }
 
     .stDownloadButton>button {
-        background-color: #0f172a;
-        color: white;
+        background-color: var(--ai-text) !important;
+        color: var(--ai-bg) !important;
         border-radius: 8px;
         font-weight: 600;
         padding: 0.5rem 1rem;
-        border: none;
+        border: 1px solid var(--ai-border) !important;
+    }
+
+    .stDownloadButton>button:hover {
+        filter: brightness(0.94);
+        color: var(--ai-bg) !important;
+        border-color: var(--ai-border) !important;
     }
 
     .result-box {
-        background-color: #f1f5f9;
+        background-color: var(--ai-result-bg);
         padding: 24px;
         border-radius: 12px;
-        border-left: 5px solid #3b82f6;
+        border-left: 5px solid var(--ai-primary);
+        border-top: 1px solid var(--ai-border);
+        border-right: 1px solid var(--ai-border);
+        border-bottom: 1px solid var(--ai-border);
         font-size: 15px;
         line-height: 1.7;
-        color: #334155;
+        color: var(--ai-text);
         margin-top: 15px;
     }
 
     .soft-card {
-        background-color: #ffffff;
+        background-color: var(--ai-card-bg);
         padding: 20px;
         border-radius: 14px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 2px rgba(15,23,42,0.04);
+        border: 1px solid var(--ai-border);
+        box-shadow: var(--ai-shadow);
         margin-bottom: 14px;
+        color: var(--ai-text);
     }
 
     .notice-card {
-        background-color: #eff6ff;
+        background-color: var(--ai-notice-bg);
         padding: 14px 16px;
         border-radius: 12px;
-        border: 1px solid #bfdbfe;
-        color: #1e3a8a;
+        border: 1px solid var(--ai-notice-border);
+        color: var(--ai-text);
         font-size: 14px;
     }
 
     .danger-card {
-        background-color: #fff7ed;
+        background-color: var(--ai-danger-bg);
         padding: 14px 16px;
         border-radius: 12px;
-        border: 1px solid #fed7aa;
-        color: #9a3412;
+        border: 1px solid var(--ai-danger-border);
+        color: var(--ai-text);
         font-size: 14px;
         margin-top: 10px;
     }
 
     .small-muted {
-        color: #64748b;
+        color: var(--ai-muted) !important;
         font-size: 13px;
         line-height: 1.55;
     }
@@ -128,32 +180,76 @@ st.markdown(
         display: inline-block;
         padding: 6px 12px;
         border-radius: 999px;
-        background-color: #dbeafe;
-        color: #1d4ed8;
+        background-color: color-mix(in srgb, var(--ai-primary) 18%, var(--ai-card-bg));
+        color: var(--ai-text);
         font-weight: 800;
         margin-right: 6px;
+        border: 1px solid color-mix(in srgb, var(--ai-primary) 35%, var(--ai-border));
     }
 
     .level-pill {
         display: inline-block;
         padding: 6px 12px;
         border-radius: 999px;
-        background-color: #ecfdf5;
-        color: #047857;
+        background-color: var(--ai-success-bg);
+        color: var(--ai-text);
         font-weight: 800;
+        border: 1px solid color-mix(in srgb, #10b981 38%, var(--ai-border));
     }
 
     .rubric-preview {
-        background-color:#ffffff;
-        border:1px solid #e2e8f0;
-        border-radius:12px;
-        padding:16px;
+        background-color: var(--ai-card-bg);
+        border: 1px solid var(--ai-border);
+        border-radius: 12px;
+        padding: 16px;
+        color: var(--ai-text);
     }
 
-    /* 사이드바 메뉴 디자인: 기존 UI 분위기 유지 */
-    [data-testid="stSidebar"] { background-color: #ffffff; }
-    [data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"] { gap: 0.1rem; }
-    [data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child { display: none; }
+    .rubric-preview * ,
+    .result-box * ,
+    .soft-card * ,
+    .notice-card * ,
+    .danger-card * {
+        color: inherit;
+    }
+
+    /* 결과 박스 안쪽 세부 평가 카드 */
+    .criteria-card {
+        margin-top: 14px;
+        padding: 14px;
+        border-radius: 10px;
+        background-color: var(--ai-card-bg);
+        border: 1px solid var(--ai-border);
+        color: var(--ai-text);
+    }
+
+    /* Streamlit 입력창과 선택창은 현재 테마와 같은 글자색을 사용 */
+    [data-baseweb="input"] input,
+    [data-baseweb="textarea"] textarea,
+    textarea,
+    input {
+        color: var(--ai-text) !important;
+    }
+
+    [data-baseweb="select"] *,
+    [data-baseweb="radio"] * {
+        color: var(--ai-text);
+    }
+
+    /* 사이드바 메뉴 디자인: 기존 UI 분위기 유지 + 다크모드 대응 */
+    [data-testid="stSidebar"],
+    [data-testid="stSidebarContent"] {
+        background-color: var(--ai-card-bg) !important;
+        color: var(--ai-text) !important;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stRadio"] > div[role="radiogroup"] {
+        gap: 0.1rem;
+    }
+
+    [data-testid="stSidebar"] [data-testid="stRadio"] label > div:first-child {
+        display: none;
+    }
 
     [data-testid="stSidebar"] [data-testid="stRadio"] label {
         padding: 10px 14px;
@@ -161,26 +257,35 @@ st.markdown(
         cursor: pointer;
         transition: all 0.2s ease;
         margin-bottom: 4px;
+        color: var(--ai-text) !important;
     }
 
     [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-        background-color: #f1f5f9;
+        background-color: color-mix(in srgb, var(--ai-primary) 8%, var(--ai-card-bg));
     }
 
     [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
-        background-color: #eff6ff;
+        background-color: color-mix(in srgb, var(--ai-primary) 14%, var(--ai-card-bg));
+        border: 1px solid color-mix(in srgb, var(--ai-primary) 28%, transparent);
     }
 
     [data-testid="stSidebar"] [data-testid="stRadio"] label p {
         font-size: 14.5px;
         font-weight: 600;
-        color: #475569;
+        color: var(--ai-muted-strong) !important;
         white-space: nowrap;
     }
 
     [data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {
-        color: #2563eb !important;
+        color: var(--ai-primary) !important;
         font-weight: 700;
+    }
+
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] b,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span {
+        color: inherit;
     }
     </style>
     """,
@@ -864,7 +969,7 @@ def render_result_box(result: Dict[str, Any]) -> None:
             score_line += f" / {max_part}점"
 
         criteria_html += f"""
-        <div style='margin-top:14px; padding:14px; border-radius:10px; background:#ffffff; border:1px solid #e2e8f0;'>
+        <div class='criteria-card'>
             <b>{area}</b><br>
             <span class='small-muted'>점수: {escape_text(score_line)} · 수준: {escape_text(item.get('level', ''))}</span><br>
             <span>{escape_text(item.get('reason', ''))}</span><br>
@@ -1065,7 +1170,7 @@ def render_rubric_manager(selected_rubric_name: str) -> None:
 # ==========================================
 with st.sidebar:
     st.markdown(
-        "<h2 style='color:#2563eb; font-weight:800; margin-bottom: 20px;'>🏫 AI 평가 보조</h2>",
+        "<h2 style='color:var(--ai-primary); font-weight:800; margin-bottom: 20px;'>🏫 AI 평가 보조</h2>",
         unsafe_allow_html=True,
     )
 
