@@ -1017,8 +1017,6 @@ with st.sidebar:
         <div class='soft-card'>
             <b>고정 AI 모델</b><br>
             <span class='small-muted'>{escape_text(FIXED_MODEL_NAME)}</span><br><br>
-            <b>앱 버전</b><br>
-            <span class='small-muted'>{escape_text(APP_VERSION)}</span><br><br>
             <b>저장된 루브릭</b><br>
             <span class='small-muted'>{len(st.session_state.rubric_binder)}개</span>
         </div>
