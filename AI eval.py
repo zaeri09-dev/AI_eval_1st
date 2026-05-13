@@ -16,6 +16,15 @@ FIXED_MODEL_NAME = "gemini-3-flash-preview"
 MAX_TEXT_CHARS = 12000
 DEFAULT_SCORE_SCALE = 100
 
+# 새로 추가/수정한 루브릭을 브라우저 새로고침 후에도 유지하기 위한 저장 파일입니다.
+# 💡 [수정 필요] 다른 위치에 저장하고 싶다면 아래 파일명을 바꾸거나,
+# 실행 환경 변수 RUBRIC_STORAGE_PATH에 원하는 전체 경로를 넣으면 됩니다.
+APP_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.getcwd()
+RUBRIC_STORAGE_PATH = os.environ.get(
+    "RUBRIC_STORAGE_PATH",
+    os.path.join(APP_DIR, "rubric_binder_saved.json"),
+)
+
 # 💡 [수정 필요] 학교/과목 상황에 맞게 기본 안내 문구를 바꿀 수 있습니다.
 TEACHER_REVIEW_NOTICE = "AI 결과는 최종 성적 확정이 아니라 교사의 검토를 돕는 보조 자료입니다."
 
@@ -235,9 +244,79 @@ def default_rubric_binder() -> Dict[str, str]:
     }
 
 
+def sanitize_rubric_binder(value: Any) -> Dict[str, str]:
+    """저장 파일에 넣기 좋은 형태로 루브릭 이름과 내용을 정리합니다."""
+    if not isinstance(value, dict):
+        return {}
+
+    cleaned: Dict[str, str] = {}
+
+    for key, content in value.items():
+        rubric_name = str(key).strip()
+        rubric_text = str(content).strip()
+
+        if rubric_name and rubric_text:
+            cleaned[rubric_name] = rubric_text
+
+    return cleaned
+
+
+def load_rubric_binder_from_disk() -> Dict[str, str]:
+    """
+    앱이 처음 열릴 때 저장된 루브릭 파일을 읽습니다.
+    저장 파일이 없거나 읽기 어렵다면 기본 루브릭으로 시작합니다.
+    """
+    if not os.path.exists(RUBRIC_STORAGE_PATH):
+        return default_rubric_binder()
+
+    try:
+        with open(RUBRIC_STORAGE_PATH, "r", encoding="utf-8-sig") as file:
+            saved_data = json.load(file)
+
+        saved_binder = sanitize_rubric_binder(saved_data)
+
+        if saved_binder:
+            return saved_binder
+
+        st.warning("저장된 루브릭 파일이 비어 있어 기본 루브릭으로 시작합니다.")
+        return default_rubric_binder()
+
+    except Exception as exc:
+        st.warning(f"저장된 루브릭 파일을 읽지 못해 기본 루브릭으로 시작합니다: {exc}")
+        return default_rubric_binder()
+
+
+def save_rubric_binder_to_disk(rubric_binder: Dict[str, str]) -> bool:
+    """
+    현재 루브릭 바인더를 JSON 파일로 저장합니다.
+    임시 파일에 먼저 쓴 뒤 바꿔치기하여 저장 중 끊겨도 파일 손상을 줄입니다.
+    """
+    try:
+        cleaned_binder = sanitize_rubric_binder(rubric_binder)
+
+        if not cleaned_binder:
+            raise ValueError("저장할 루브릭이 없습니다.")
+
+        storage_dir = os.path.dirname(RUBRIC_STORAGE_PATH)
+        if storage_dir:
+            os.makedirs(storage_dir, exist_ok=True)
+
+        temp_path = f"{RUBRIC_STORAGE_PATH}.tmp"
+
+        with open(temp_path, "w", encoding="utf-8") as file:
+            json.dump(cleaned_binder, file, ensure_ascii=False, indent=2)
+
+        os.replace(temp_path, RUBRIC_STORAGE_PATH)
+        return True
+
+    except Exception as exc:
+        st.error(f"루브릭을 저장 파일에 기록하지 못했습니다: {exc}")
+        return False
+
+
 def init_session_state() -> None:
     if "rubric_binder" not in st.session_state:
-        st.session_state.rubric_binder = default_rubric_binder()
+        st.session_state.rubric_binder = load_rubric_binder_from_disk()
 
     if "menu_expanded" not in st.session_state:
         st.session_state.menu_expanded = True
@@ -890,9 +969,14 @@ def render_rubric_manager(selected_rubric_name: str) -> None:
         with c1:
             if st.button("💾 수정 저장", key=f"save_{selected_rubric_name}"):
                 if edited_text.strip():
+                    old_binder = dict(st.session_state.rubric_binder)
                     st.session_state.rubric_binder[selected_rubric_name] = edited_text.strip()
-                    st.success("수정한 루브릭을 저장했습니다.")
-                    st.rerun()
+
+                    if save_rubric_binder_to_disk(st.session_state.rubric_binder):
+                        st.success("수정한 루브릭을 저장했습니다. 새로고침 후에도 유지됩니다.")
+                        st.rerun()
+                    else:
+                        st.session_state.rubric_binder = old_binder
                 else:
                     st.error("루브릭 내용을 비워둘 수 없습니다.")
 
@@ -901,9 +985,14 @@ def render_rubric_manager(selected_rubric_name: str) -> None:
                 if len(st.session_state.rubric_binder) <= 1:
                     st.error("최소 1개의 루브릭은 남겨두어야 합니다.")
                 else:
+                    old_binder = dict(st.session_state.rubric_binder)
                     del st.session_state.rubric_binder[selected_rubric_name]
-                    st.success("루브릭을 삭제했습니다.")
-                    st.rerun()
+
+                    if save_rubric_binder_to_disk(st.session_state.rubric_binder):
+                        st.success("루브릭을 삭제했습니다. 새로고침 후에도 반영됩니다.")
+                        st.rerun()
+                    else:
+                        st.session_state.rubric_binder = old_binder
 
         with c3:
             st.download_button(
@@ -931,9 +1020,14 @@ def render_rubric_manager(selected_rubric_name: str) -> None:
             elif new_name.strip() in st.session_state.rubric_binder:
                 st.error("이미 같은 이름의 루브릭이 있습니다.")
             else:
+                old_binder = dict(st.session_state.rubric_binder)
                 st.session_state.rubric_binder[new_name.strip()] = new_content.strip()
-                st.success("새 루브릭을 저장했습니다.")
-                st.rerun()
+
+                if save_rubric_binder_to_disk(st.session_state.rubric_binder):
+                    st.success("새 루브릭을 저장했습니다. 새로고침 후에도 유지됩니다.")
+                    st.rerun()
+                else:
+                    st.session_state.rubric_binder = old_binder
 
         st.markdown("---")
 
@@ -950,12 +1044,17 @@ def render_rubric_manager(selected_rubric_name: str) -> None:
                 if not isinstance(loaded, dict):
                     st.error("JSON 형식이 올바르지 않습니다.")
                 else:
+                    old_binder = dict(st.session_state.rubric_binder)
+
                     for k, v in loaded.items():
                         if str(k).strip() and str(v).strip():
                             st.session_state.rubric_binder[str(k).strip()] = str(v).strip()
 
-                    st.success("백업 루브릭을 현재 바인더에 병합했습니다.")
-                    st.rerun()
+                    if save_rubric_binder_to_disk(st.session_state.rubric_binder):
+                        st.success("백업 루브릭을 현재 바인더에 병합했습니다. 새로고침 후에도 유지됩니다.")
+                        st.rerun()
+                    else:
+                        st.session_state.rubric_binder = old_binder
 
             except Exception as exc:
                 st.error(f"백업 파일을 읽지 못했습니다: {exc}")
@@ -1510,10 +1609,15 @@ elif st.session_state.current_page == "✨ AI 루브릭 설계":
                 if not save_name.strip():
                     st.error("저장할 이름을 입력해 주세요.")
                 else:
+                    old_binder = dict(st.session_state.rubric_binder)
                     st.session_state.rubric_binder[save_name.strip()] = (
                         st.session_state.generated_rubric_text.strip()
                     )
-                    st.success("루브릭 바인더에 저장했습니다. 단일/일괄 채점 메뉴에서 선택할 수 있습니다.")
+
+                    if save_rubric_binder_to_disk(st.session_state.rubric_binder):
+                        st.success("루브릭 바인더에 저장했습니다. 단일/일괄 채점 메뉴에서 선택할 수 있고, 새로고침 후에도 유지됩니다.")
+                    else:
+                        st.session_state.rubric_binder = old_binder
 
         with c2:
             st.download_button(
